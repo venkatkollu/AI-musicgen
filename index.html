@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuraMelody - AI Music Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/abcjs@6.0.0/dist/abcjs-basic-min.js"></script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #10b981;
+            --background: #0f172a;
+            --surface: #1e293b;
+            --text: #f8fafc;
+            --error: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .main-panel {
+            background: var(--surface);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        }
+
+        .input-group {
+            margin-bottom: 2rem;
+        }
+
+        .description-input {
+            width: 100%;
+            padding: 1.25rem;
+            border: 2px solid var(--primary);
+            border-radius: 0.75rem;
+            background: transparent;
+            color: var(--text);
+            font-size: 1.1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .description-input:focus {
+            outline: none;
+            border-color: var(--secondary);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .control-group {
+            background: rgba(255,255,255,0.05);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+
+        .button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 1rem 1.5rem;
+            border: none;
+            border-radius: 0.75rem;
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .button:disabled {
+            background: #475569;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .visualizer {
+            background: rgba(0,0,0,0.3);
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-top: 2rem;
+            min-height: 300px;
+            position: relative;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 1rem;
+        }
+
+        .progress-container {
+            width: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 999px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: var(--secondary);
+            transition: width 0.3s ease;
+        }
+
+        .status-message {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .status-message.info {
+            background: rgba(255,255,255,0.1);
+            border-left: 4px solid var(--primary);
+        }
+
+        .status-message.error {
+            background: var(--error);
+            border-left: 4px solid #7f1d1d;
+        }
+
+        .instrument-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .instrument-btn {
+            padding: 0.75rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 0.5rem;
+            background: transparent;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .instrument-btn.active {
+            border-color: var(--secondary);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🎵 NeuraMelody</h1>
+            <p>Transform text into original music compositions</p>
+        </header>
+
+        <main class="main-panel">
+            <div class="input-group">
+                <textarea class="description-input" 
+                          id="textInput"
+                          rows="3"
+                          placeholder="Describe the music you want to create..."></textarea>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <button class="button" id="initBtn" onclick="initializeSystem()">
+                        <span class="loader" id="initLoader"></span>
+                        Initialize System
+                    </button>
+                    <div class="status-message info" id="initStatus">
+                        First initialization downloads AI model (~80MB)
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <button class="button" id="generateBtn" onclick="generateMusic()" disabled>
+                        Generate Music
+                    </button>
+                    <div class="instrument-selector" id="instrumentSelector">
+                        <button class="instrument-btn" data-instrument="piano" onclick="changeInstrument(this)">🎹 Piano</button>
+                        <button class="instrument-btn" data-instrument="synth" onclick="changeInstrument(this)">🎛 Synth</button>
+                        <button class="instrument-btn" data-instrument="strings" onclick="changeInstrument(this)">🎻 Strings</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <button class="button" id="playBtn" onclick="togglePlayback()" disabled>
+                        ▶ Play
+                    </button>
+                    <div class="status-message info" id="playbackStatus">
+                        Generated music will appear here
+                    </div>
+                </div>
+            </div>
+
+            <div class="visualizer">
+                <div class="loading-overlay" id="loadingOverlay">
+                    <div class="progress-container">
+                        <div class="progress-bar" id="modelProgress"></div>
+                    </div>
+                </div>
+                <div id="sheetMusic"></div>
+            </div>
+
+            <div class="status-message error" id="errorMessage"></div>
+        </main>
+    </div>
+
+    <script>
+        const mm = window.mm;
+        let musicVAE = null;
+        let synth = null;
+        let currentPart = null;
+        let isInitialized = false;
+        let currentInstrument = 'piano';
+
+        // UI Elements
+        const initBtn = document.getElementById('initBtn');
+        const generateBtn = document.getElementById('generateBtn');
+        const playBtn = document.getElementById('playBtn');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const modelProgress = document.getElementById('modelProgress');
+
+        // SoundFont instruments
+        const instruments = {
+            piano: 'https://cdn.jsdelivr.net/gh/Tonejs/soundfonts@latest/piano-mp3.js',
+            synth: 'https://cdn.jsdelivr.net/gh/Tonejs/soundfonts@latest/synth-mp3.js',
+            strings: 'https://cdn.jsdelivr.net/gh/Tonejs/soundfonts@latest/strings-mp3.js'
+        };
+
+        async function initializeSystem() {
+            try {
+                showLoading(true);
+                initBtn.disabled = true;
+                updateStatus('Initializing audio system...', 'info');
+
+                // Initialize audio context
+                await Tone.start();
+                
+                // Load MusicVAE model
+                updateStatus('Downloading AI model...', 'info');
+                musicVAE = new mm.MusicVAE(
+                    'https://storage.googleapis.com/magentadata/js/checkpoints/music_vae/mel_16bar_q2'
+                );
+
+                // Track model loading progress
+                musicVAE.initialize().progress(progress => {
+                    modelProgress.style.width = `${progress * 100}%`;
+                });
+
+                await musicVAE.initialize();
+                
+                // Initialize default instrument
+                await changeInstrument(document.querySelector('[data-instrument="piano"]'));
+                
+                isInitialized = true;
+                generateBtn.disabled = false;
+                updateStatus('System ready!', 'success');
+                
+            } catch (error) {
+                handleError(`Initialization failed: ${error.message}`);
+            } finally {
+                showLoading(false);
+                initBtn.disabled = false;
+            }
+        }
+
+        async function generateMusic() {
+            try {
+                if (!isInitialized) {
+                    handleError('Please initialize system first');
+                    return;
+                }
+
+                const prompt = document.getElementById('textInput').value.trim();
+                if (!prompt) {
+                    handleError('Please enter a music description');
+                    return;
+                }
+
+                showLoading(true);
+                updateStatus('Composing your music...', 'info');
+
+                // Generate music
+                const temperature = 0.7;
+                const music = await musicVAE.sample(1, temperature);
+                
+                if (!music?.[0]?.notes) {
+                    throw new Error('Failed to generate music notes');
+                }
+
+                // Visualize and store
+                abcjs.renderAbc('sheetMusic', music[0].toABC());
+                window.generatedNotes = music[0].notes;
+                
+                playBtn.disabled = false;
+                updateStatus('Music generated! Click play to listen', 'success');
+
+            } catch (error) {
+                handleError(`Generation failed: ${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function togglePlayback() {
+            try {
+                if (!window.generatedNotes) {
+                    handleError('Generate music first');
+                    return;
+                }
+
+                if (Tone.Transport.state === 'started') {
+                    stopPlayback();
+                } else {
+                    startPlayback();
+                }
+            } catch (error) {
+                handleError(`Playback error: ${error.message}`);
+            }
+        }
+
+        async function startPlayback() {
+            currentPart = new Tone.Part((time, note) => {
+                synth.triggerAttackRelease(note.pitch, note.duration, time);
+            }, window.generatedNotes).start(0);
+
+            Tone.Transport.start();
+            playBtn.textContent = '⏹ Stop';
+            updateStatus('Playing...', 'info');
+        }
+
+        function stopPlayback() {
+            Tone.Transport.stop();
+            currentPart?.stop();
+            playBtn.textContent = '▶ Play';
+            updateStatus('Playback stopped', 'info');
+        }
+
+        async function changeInstrument(button) {
+            try {
+                document.querySelectorAll('.instrument-btn').forEach(btn => 
+                    btn.classList.remove('active'));
+                button.classList.add('active');
+                currentInstrument = button.dataset.instrument;
+
+                updateStatus(`Loading ${currentInstrument}...`, 'info');
+                synth = await Tone.Sampler.fromUrl(instruments[currentInstrument]);
+                synth.toDestination();
+
+                updateStatus(`${currentInstrument} loaded!`, 'success');
+            } catch (error) {
+                handleError(`Failed to load instrument: ${error.message}`);
+            }
+        }
+
+        // UI Helpers
+        function showLoading(show) {
+            loadingOverlay.style.display = show ? 'flex' : 'none';
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('playbackStatus');
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${type}`;
+            statusEl.style.display = 'block';
+        }
+
+        function handleError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            setTimeout(() => errorEl.style.display = 'none', 5000);
+        }
+
+        // Initialize on window load
+        window.addEventListener('load', () => {
+            document.getElementById('initStatus').style.display = 'block';
+        });
+    </script>
+</body>
+</html>
