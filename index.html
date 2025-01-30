@@ -24,7 +24,7 @@
         }
 
         body {
-            font-family: 'Inter', system-ui, sans-serif;
+            font-family: 'Inter', system-ui;
             background: var(--background);
             color: var(--text);
             min-height: 100vh;
@@ -41,74 +41,94 @@
             text-align: center;
             margin-bottom: 3rem;
             padding: 2rem 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
+
+        .status-bar {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: var(--surface);
+            border-radius: 0.5rem;
+        }
+
+        .network-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .online .status-dot { background: var(--secondary); }
+        .offline .status-dot { background: var(--error); }
 
         .main-panel {
             background: var(--surface);
-            border-radius: 1.5rem;
+            border-radius: 1rem;
             padding: 2rem;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         .input-group {
             margin-bottom: 2rem;
         }
 
-        .description-input {
+        textarea {
             width: 100%;
             padding: 1.25rem;
             border: 2px solid var(--primary);
             border-radius: 0.75rem;
             background: transparent;
             color: var(--text);
-            font-size: 1.1rem;
-            transition: border-color 0.3s ease;
-        }
-
-        .description-input:focus {
-            outline: none;
-            border-color: var(--secondary);
+            font-size: 1rem;
+            min-height: 120px;
+            resize: vertical;
         }
 
         .controls {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
             margin-bottom: 2rem;
         }
 
-        .control-group {
-            background: rgba(255,255,255,0.05);
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-        }
-
         .button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            width: 100%;
             padding: 1rem 1.5rem;
             border: none;
             border-radius: 0.75rem;
             background: var(--primary);
             color: white;
-            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .button:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
         }
 
         .button:disabled {
             background: #475569;
             cursor: not-allowed;
             opacity: 0.7;
+        }
+
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: var(--secondary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         .visualizer {
@@ -120,7 +140,7 @@
             position: relative;
         }
 
-        .loading-overlay {
+        .overlay {
             position: absolute;
             top: 0;
             left: 0;
@@ -130,50 +150,36 @@
             display: none;
             align-items: center;
             justify-content: center;
+            flex-direction: column;
+            gap: 1rem;
+            color: white;
             border-radius: 1rem;
-        }
-
-        .progress-container {
-            width: 200px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 999px;
-            height: 8px;
-            overflow: hidden;
-        }
-
-        .progress-bar {
-            width: 0%;
-            height: 100%;
-            background: var(--secondary);
-            transition: width 0.3s ease;
         }
 
         .status-message {
             padding: 1rem;
             border-radius: 0.5rem;
             margin: 1rem 0;
-            display: none;
         }
 
-        .status-message.info {
+        .info {
             background: rgba(255,255,255,0.1);
             border-left: 4px solid var(--primary);
         }
 
-        .status-message.error {
+        .error {
             background: var(--error);
             border-left: 4px solid #7f1d1d;
         }
 
         .instrument-selector {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            display: flex;
             gap: 0.5rem;
             margin-top: 1rem;
         }
 
         .instrument-btn {
-            padding: 0.75rem;
+            padding: 0.75rem 1rem;
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 0.5rem;
             background: transparent;
@@ -186,65 +192,62 @@
             border-color: var(--secondary);
             background: rgba(16, 185, 129, 0.1);
         }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <header class="header">
             <h1>🎵 NeuraMelody</h1>
-            <p>Transform text into original music compositions</p>
+            <p>AI-Powered Music Composition Platform</p>
         </header>
+
+        <div class="status-bar">
+            <div class="network-status online" id="networkStatus">
+                <div class="status-dot"></div>
+                <span>Online</span>
+            </div>
+            <div class="status-message info">
+                First initialization downloads AI model (~80MB)
+            </div>
+        </div>
 
         <main class="main-panel">
             <div class="input-group">
-                <textarea class="description-input" 
-                          id="textInput"
-                          rows="3"
-                          placeholder="Describe the music you want to create..."></textarea>
+                <textarea id="inputPrompt" 
+                    placeholder="Describe your music (e.g. 'Epic orchestral music for a fantasy battle scene')"></textarea>
             </div>
 
             <div class="controls">
-                <div class="control-group">
-                    <button class="button" id="initBtn" onclick="initializeSystem()">
-                        <span class="loader" id="initLoader"></span>
-                        Initialize System
+                <button class="button" id="initBtn" onclick="initializeSystem()">
+                    <span class="loading-spinner" id="initSpinner"></span>
+                    Initialize System
+                </button>
+                
+                <div class="instrument-selector">
+                    <button class="instrument-btn active" data-instrument="piano" onclick="changeInstrument(this)">
+                        🎹 Piano
                     </button>
-                    <div class="status-message info" id="initStatus">
-                        First initialization downloads AI model (~80MB)
-                    </div>
+                    <button class="instrument-btn" data-instrument="synth" onclick="changeInstrument(this)">
+                        🎛 Synth
+                    </button>
+                    <button class="instrument-btn" data-instrument="strings" onclick="changeInstrument(this)">
+                        🎻 Strings
+                    </button>
                 </div>
 
-                <div class="control-group">
-                    <button class="button" id="generateBtn" onclick="generateMusic()" disabled>
-                        Generate Music
-                    </button>
-                    <div class="instrument-selector" id="instrumentSelector">
-                        <button class="instrument-btn" data-instrument="piano" onclick="changeInstrument(this)">🎹 Piano</button>
-                        <button class="instrument-btn" data-instrument="synth" onclick="changeInstrument(this)">🎛 Synth</button>
-                        <button class="instrument-btn" data-instrument="strings" onclick="changeInstrument(this)">🎻 Strings</button>
-                    </div>
-                </div>
+                <button class="button" id="generateBtn" onclick="generateMusic()" disabled>
+                    🎼 Generate Music
+                </button>
 
-                <div class="control-group">
-                    <button class="button" id="playBtn" onclick="togglePlayback()" disabled>
-                        ▶ Play
-                    </button>
-                    <div class="status-message info" id="playbackStatus">
-                        Generated music will appear here
-                    </div>
-                </div>
+                <button class="button" id="playBtn" onclick="togglePlayback()" disabled>
+                    ▶ Play
+                </button>
             </div>
 
             <div class="visualizer">
-                <div class="loading-overlay" id="loadingOverlay">
-                    <div class="progress-container">
-                        <div class="progress-bar" id="modelProgress"></div>
-                    </div>
+                <div class="overlay" id="loadingOverlay">
+                    <div class="loading-spinner"></div>
+                    <div id="loadingText">Loading AI Model...</div>
                 </div>
                 <div id="sheetMusic"></div>
             </div>
@@ -266,7 +269,7 @@
         const generateBtn = document.getElementById('generateBtn');
         const playBtn = document.getElementById('playBtn');
         const loadingOverlay = document.getElementById('loadingOverlay');
-        const modelProgress = document.getElementById('modelProgress');
+        const errorMessage = document.getElementById('errorMessage');
 
         // SoundFont instruments
         const instruments = {
@@ -275,85 +278,106 @@
             strings: 'https://cdn.jsdelivr.net/gh/Tonejs/soundfonts@latest/strings-mp3.js'
         };
 
+        // Network status monitoring
+        function updateNetworkStatus() {
+            const statusElement = document.getElementById('networkStatus');
+            if (navigator.onLine) {
+                statusElement.classList.remove('offline');
+                statusElement.classList.add('online');
+                statusElement.querySelector('span').textContent = 'Online';
+            } else {
+                statusElement.classList.remove('online');
+                statusElement.classList.add('offline');
+                statusElement.querySelector('span').textContent = 'Offline';
+            }
+        }
+
+        // System initialization
         async function initializeSystem() {
             try {
+                if (!navigator.onLine) {
+                    showError("No internet connection");
+                    return;
+                }
+
                 showLoading(true);
                 initBtn.disabled = true;
-                updateStatus('Initializing audio system...', 'info');
+                clearError();
 
                 // Initialize audio context
                 await Tone.start();
                 
                 // Load MusicVAE model
-                updateStatus('Downloading AI model...', 'info');
                 musicVAE = new mm.MusicVAE(
                     'https://storage.googleapis.com/magentadata/js/checkpoints/music_vae/mel_16bar_q2'
                 );
-
-                // Track model loading progress
-                musicVAE.initialize().progress(progress => {
-                    modelProgress.style.width = `${progress * 100}%`;
-                });
-
-                await musicVAE.initialize();
                 
+                // Initialize model with timeout
+                await Promise.race([
+                    musicVAE.initialize(),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error("Model download timed out (check internet connection)")), 180000))
+                ]);
+
                 // Initialize default instrument
-                await changeInstrument(document.querySelector('[data-instrument="piano"]'));
+                await changeInstrument(document.querySelector('.instrument-btn.active'));
                 
                 isInitialized = true;
                 generateBtn.disabled = false;
-                updateStatus('System ready!', 'success');
-                
-            } catch (error) {
-                handleError(`Initialization failed: ${error.message}`);
-            } finally {
                 showLoading(false);
+
+            } catch (error) {
+                showError(`Initialization failed: ${error.message}`);
                 initBtn.disabled = false;
+                showLoading(false);
             }
         }
 
+        // Music generation
         async function generateMusic() {
             try {
                 if (!isInitialized) {
-                    handleError('Please initialize system first');
+                    showError("Please initialize system first");
                     return;
                 }
 
-                const prompt = document.getElementById('textInput').value.trim();
+                const prompt = document.getElementById('inputPrompt').value.trim();
                 if (!prompt) {
-                    handleError('Please enter a music description');
+                    showError("Please enter a music description");
                     return;
                 }
 
                 showLoading(true);
-                updateStatus('Composing your music...', 'info');
+                clearError();
 
-                // Generate music
-                const temperature = 0.7;
-                const music = await musicVAE.sample(1, temperature);
-                
+                // Generate music with timeout
+                const music = await Promise.race([
+                    musicVAE.sample(1, 0.7),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error("Generation timed out")), 30000))
+                ]);
+
                 if (!music?.[0]?.notes) {
-                    throw new Error('Failed to generate music notes');
+                    throw new Error("Failed to generate music notes");
                 }
 
                 // Visualize and store
                 abcjs.renderAbc('sheetMusic', music[0].toABC());
                 window.generatedNotes = music[0].notes;
-                
                 playBtn.disabled = false;
-                updateStatus('Music generated! Click play to listen', 'success');
 
             } catch (error) {
-                handleError(`Generation failed: ${error.message}`);
+                showError(`Generation failed: ${error.message}`);
             } finally {
                 showLoading(false);
             }
         }
 
-        async function togglePlayback() {
+        // Playback control
+        function togglePlayback() {
             try {
                 if (!window.generatedNotes) {
-                    handleError('Generate music first');
+                    showError("Generate music first");
                     return;
                 }
 
@@ -363,27 +387,26 @@
                     startPlayback();
                 }
             } catch (error) {
-                handleError(`Playback error: ${error.message}`);
+                showError(`Playback error: ${error.message}`);
             }
         }
 
-        async function startPlayback() {
+        function startPlayback() {
             currentPart = new Tone.Part((time, note) => {
                 synth.triggerAttackRelease(note.pitch, note.duration, time);
             }, window.generatedNotes).start(0);
 
             Tone.Transport.start();
             playBtn.textContent = '⏹ Stop';
-            updateStatus('Playing...', 'info');
         }
 
         function stopPlayback() {
             Tone.Transport.stop();
             currentPart?.stop();
             playBtn.textContent = '▶ Play';
-            updateStatus('Playback stopped', 'info');
         }
 
+        // Instrument handling
         async function changeInstrument(button) {
             try {
                 document.querySelectorAll('.instrument-btn').forEach(btn => 
@@ -391,13 +414,14 @@
                 button.classList.add('active');
                 currentInstrument = button.dataset.instrument;
 
-                updateStatus(`Loading ${currentInstrument}...`, 'info');
+                showLoading(true);
                 synth = await Tone.Sampler.fromUrl(instruments[currentInstrument]);
                 synth.toDestination();
 
-                updateStatus(`${currentInstrument} loaded!`, 'success');
             } catch (error) {
-                handleError(`Failed to load instrument: ${error.message}`);
+                showError(`Failed to load ${currentInstrument}: ${error.message}`);
+            } finally {
+                showLoading(false);
             }
         }
 
@@ -406,23 +430,22 @@
             loadingOverlay.style.display = show ? 'flex' : 'none';
         }
 
-        function updateStatus(message, type = 'info') {
-            const statusEl = document.getElementById('playbackStatus');
-            statusEl.textContent = message;
-            statusEl.className = `status-message ${type}`;
-            statusEl.style.display = 'block';
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => errorMessage.style.display = 'none', 5000);
         }
 
-        function handleError(message) {
-            const errorEl = document.getElementById('errorMessage');
-            errorEl.textContent = message;
-            errorEl.style.display = 'block';
-            setTimeout(() => errorEl.style.display = 'none', 5000);
+        function clearError() {
+            errorMessage.style.display = 'none';
         }
 
-        // Initialize on window load
+        // Event listeners
+        window.addEventListener('online', updateNetworkStatus);
+        window.addEventListener('offline', updateNetworkStatus);
         window.addEventListener('load', () => {
-            document.getElementById('initStatus').style.display = 'block';
+            updateNetworkStatus();
+            document.querySelector('.instrument-btn').click();
         });
     </script>
 </body>
